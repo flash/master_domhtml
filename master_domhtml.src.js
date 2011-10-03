@@ -1,11 +1,50 @@
 ﻿
 (function (rr) {
-	// 'use strict';
+	'use strict';
 
 	var u, badIE = '\v'=='v' && document.createElement('span').style.opacity === u; // badIE = IE<9
 
-	// алиасы для параметров чтоб походили на имя атрибута
-	var attr_alias = {cellspacing: 'cellSpacing', cellpadding: 'cellPadding', colspan: 'colspan', rowSpan: 'rowSpan'};
+	// по умолчанию все все параметры вставляются через nn.setAttribute(x, v);
+	// за исключением приведенного списка и параметров начинаюшиеся с символа "_" пример {_xxxx: 333}
+	var attr_to_param = { constructor: false
+		, 'name': badIE ? false : 'name'
+		, 'type': badIE ? false : 'type'
+		, 'title': 'title'
+		, 'value': 'value'
+		, 'width': 'width'
+		, 'height': 'height'
+		, 'src': 'src'
+		, 'href': 'href'
+		, 'rel': 'rel'
+		, 'cellPadding': 'cellPadding'
+		, 'cellpadding': 'cellPadding'
+		, 'cellSpacing': 'cellSpacing'
+		, 'cellspacing': 'cellSpacing'
+		, 'colSpan': 'colSpan'
+		, 'colspan': 'colSpan'
+		, 'rowSpan': 'rowSpan'
+		, 'rowspan': 'rowSpan'
+		, 'border': 'border'
+		, 'content': 'content'
+		, 'bgColor': 'bgColor'
+		, 'bgcolor': 'bgColor'
+		, 'valign': 'vAlign'
+		, 'vAlign': 'vAlign'
+		, 'color': 'color'
+		, 'abbr': 'abbr'
+		, 'align': 'align'
+		, 'httpEquiv': 'httpEquiv'
+		, 'http-equiv': 'httpEquiv'
+		, 'tabIndex': 'tabIndex'
+		, 'tabindex': 'tabIndex'
+		, 'zIndex': 'zIndex'
+		, 'zindex': 'zIndex'
+		, 'onclick': 'onclick'
+		, 'onmousedown': 'onmousedown'
+		, 'onmouseup': 'onmouseup'
+		, 'onmousemove': 'onmousemove'
+	};
+
 
 	rr.new_master = function (d, ns) {
 
@@ -16,25 +55,21 @@
 			var tag, a, u, l = arguments.length
 			, params = false
 			, arg_length = arguments.length
-			, is_append // второй аргумент (q) это не параметр
+			, append_index = 1 // с какого аргумента наченаются потомки
 			, is_group // флаг что это группа (nodeType < 0)
 			, i, x, id, css, pn, sx, v
 			;
 
-			if (q) {
-				is_append = true;
+			if (q && !q.nodeType && typeof q == 'object') {
+				if (q.length === u || !isArray(q)) {
+					params = q;
 
-				if (!q.nodeType && typeof q == 'object') {
-					if (q.length === u || !isArray(q)) {
-						params = q;
-
-						arguments[1] = q = params.add; // params.add - призрак прошлого. вырезаю из кода
-						if (q === u) is_append = u;
+					arguments[1] = q = params.add; // params.add - призрак прошлого. вырезаю из кода
+					
+					if (q === u) {
+						append_index = 2;
 					};
 				};
-			} 
-			else {
-				is_append = q === 0 || q === '';
 			};
 
 
@@ -72,21 +107,21 @@
 						break;
 					} ;
 
-					i = nn.indexOf(':');
-					if (is_group = i !== -1) {
-						nn = create_group(i ? nn.substring(0, i) : 'default', nn.substring(++i), params || false, d, ns, master);
+					
+					if (nn.indexOf(':') !== -1) {
+						i = nn.indexOf(':');
+						nn = create_group(nn.substring(0, i), nn.substring(++i), params || false, d, ns, master);
 						if (!nn || !(i=nn.nodeType)) return nn;
 
 						is_group = i < 0;
-						if (!is_group) params = false;
+						if (!is_group) params = false; // выставлять параметры нет нужды за это отвечает конструктор
 						break;
 					};
 
-					// tag.className#idNode
-					i = nn.indexOf('#');
-					if (i > 0) {
-						id = nn.substring(i + 1);
-						x = i;
+					// tag.className className#idNode
+					if (nn.indexOf('#') > 0) {
+						x = nn.indexOf('#');
+						id = nn.substring(x + 1);
 					} else {
 						x = u;
 					};
@@ -97,10 +132,11 @@
 						x = i;
 					};
 
-					if (x) nn = nn.substring(0, x);
+					if (x) {
+						nn = nn.substring(0, x);
+					};
 
-					nn = (tag = nn) === 'body' ? d.body 
-						: d.createElement(nn);
+					nn = (tag = nn) !== 'body' ? d.createElement(nn) : d.body;
 			};
 
 			
@@ -116,8 +152,8 @@
 					for (x in params) {
 						v = params[x];
 						if (v === u) continue;
-						
-						if (i = attr_alias[x]) { // алиасы для параметров чтоб походили на имя атрибута
+
+						if (i = attr_to_param[x]) {
 							nn[x] = v; 
 							continue;
 						};
@@ -148,35 +184,14 @@
 								typeof v === 'string' ? nn.style.cssText = v : v && style_set(nn, v);
 								break;
 
-							case 'href':
-								/*  буду считать что master создан только для генерации элемента. буду ждаь ошибки
-								if (badIE && v && v.indexOf('@') !== -1) {
-									// иногда всплывает ошибка. это несовсем удачное решение  
-									// проблему нужно сново пересмотреть, как только она вcплывет снова
-									v = v.replace(/@/g, '%40');
-								};
-								*/
-
-								nn.href = v;
-								break;
-
 							case 'add': case 'parent': case 'before': case 'after':
 								break;
 
 							default:
-								if (badIE)  { // есть косяк в IE . через параметр обьекта неработает
-									if (tag === 'button' || tag === 'input') {
-										nn.setAttribute(x, i);
-										continue;
-									};
-								}; 
-
-
-								// '~/nameattr' или '/nameattr' вот в чем вопрос
-								if (x.indexOf('~/') === 0) {
-									if (x = x.substr(2)) nn.setAttribute(x, i);
-								} else {
+								if (x.indexOf('_') === 0) {
 									nn[x] = v; 
+								} else {
+									nn.setAttribute(x, v);
 								};
 						};
 					};
@@ -187,56 +202,21 @@
 				if (css) nn.className = css;
 				if (id) nn.id = id;
 			};
+			
 
-
-
-			// append child . тут снос крыши :)
-			i = is_append ? 1 : 2;
-			if (i < arg_length) {
-				pn = nn;
-
-				if (is_group && typeof nn.appendChild !== 'function') {
-					pn = nn.box || nn.node;
-					if (!pn) arg_length = u;
-				} else {
-					sx = is_group; // магия бля
-				};
-
-				while (i < arg_length) {
-					if (a = arguments[i++]) {
-						x = a.nodeType;
-						if (x > 0) {
-							pn.appendChild(a);
-							continue;
-						}
-						if (x < 0) {
-							if (sx) {
-								pn.appendChild(a)
-							} 
-							else if (a = a.node) {
-								pn.appendChild(a);
-							};
-							continue;
-						}
-					}
-
-					switch (typeof a) {
-						case 'number':
-							if (a !== a) break;
-						case 'string':
-							//try {
-							pn.appendChild(d.createTextNode(a));
-							//} catch (e) {alert(pn);throw e};
-							break;
-
-						case 'object':
-							if (isArray(a)) {
-								append(pn, a, d, sx);
-							};
+			if (is_group) {
+				sx = typeof nn.appendChild === 'function';
+				if (!sx) {
+					pn = nn.box || nn.node || false;
+					if (pn.nodeType > 0) {
+						append_nativ(d, pn, arguments, append_index);
 					};
+				} else {
+					append_other(d, nn, arguments, append_index);
 				};
+			} else {
+				append_nativ(d, nn, arguments, append_index);
 			};
-
 
 			return params ? params.parent || params.after || params.before ? insert(nn, params, is_group) : nn : nn;
 		};
@@ -319,48 +299,87 @@
 			return a.parentNode.insertBefore(nn, a);
 
 		return nn;
-	}
+	};
 
+	function append_nativ(d, pn, m, si) {
+		var i = si, l = m.length, a, x;
 
-	function append(nn, m, d, s) {
-		var i = 0, l = m.length, a, x;
-
-		while (i < l) {
-
-			if (a = m[i++]) {
+		while(i < l) {
+			a = m[i++];
+			
+			if (a) {
 				x = a.nodeType;
-
 				if (x > 0) {
-					nn.appendChild(a);
+					try {
+					pn.appendChild(a);
+					} catch(e) {
+						alert(pn === a)
+						//alert(e)
+						//alert(a)
+						
+					}					
 					continue;
 				}
-
-				if (x < 0) {
-					if (s) {
-						nn.appendChild(a)
-					} else if (a = a.node) nn.appendChild(a);
-					continue;
-				}
+				else if (x < 0) {
+					if (a = a.node) {
+						pn.appendChild(a);
+					};
+					continue
+				};
 			}
+			else if (a !== 0) {
+				continue;
+			};
+			
+			
+			switch (typeof a) {
+				case 'number': if (a !== a) break;
+				case 'string':
+					pn.appendChild(d.createTextNode(a));
+					break;
+
+				case 'object':
+					if (isArray(a)) append_nativ(d, pn, a, 0);
+			};
+		};
+	};
+
+	// у обьекта свой способ добавления потомков
+	function append_other(d, nn, m, si) {
+		var i = si, l = m.length, a, x;
+		
+		while(i < l) {
+			a = m[i++];
+			if (a) {
+				if (a.nodeType) {
+					nn.appendChild(a);
+				};
+			} 
+			else if (a !== 0) {
+				continue;
+			};
 
 			switch (typeof a) {
-				case 'number':
-					if (a !== a) break;
+				case 'number': if (a !== a) break;
 				case 'string':
 					nn.appendChild(d.createTextNode(a));
 					break;
 
 				case 'object':
-					if (isArray(a)) append(nn, a, d, s);
-			}
-		}
-	}
+					if (isArray(a)) append_other(nn, a);
+			};
 
+		};
+	};
+
+
+	// так как отказался от контекста этот функционал считаю устаревшим
 	function clone(doc) {
 		var c = rr.new_master(doc||this.document, this.global);
 		return c;
 	};
 
+	
 	/*
 	ui - name ui || ui element
 	pr - set parament
@@ -369,19 +388,16 @@
 	master - constructor element
 	*/
 
-	//var _nullprm = {};
-	function create_group(tp, ui, pr, d, gs, master) {
-		var ns = gs[tp], c, u;
 
-		if (!ui || !ns) return false;
+	function create_group(type, ui, p, d, gs, master) {
+		var ns = gs[type]||false, c, u;
 
 		if (c = ns[ui]) {
-
 			if (typeof c === 'function') {
 				if (!c.prototype.nodeType) c.prototype.nodeType = -1;
-				ui = new c(master, pr ); //, {name: ui, type: tp, document: d, uiclass: c}
+				ui = new c(master, p ); //, {name: ui, type: tp, document: d, uiclass: c}
 				return ui;
-			}
+			};
 		};
 	};
 
@@ -410,7 +426,6 @@
 	};
 
 
-	// 
 	function map(a, func) {
 		if (!a || typeof func !== 'function') {
 			return;
@@ -421,30 +436,35 @@
 		};
 
 		var l = a.length
-		, i = 0
+		, i = 1
 		, iend = l - 1
 		, m = []
-		, e = {first: true, last: false, list: a} //, master: this
+		, e = {first: true, last: false, list: a, index: 0} //, master: this
 		, v, u
 		;
 
+
+		if (0 < l) {
+			v = func(a[0], e, this);
+			if (v || v === 0 || v === '') {
+				m.push(v)
+			};
+
+			e.first = false;
+		};
 
 		for (; i < l; i++) {
 			if (i === iend) e.last = true;
 			e.index = i;
 
 			v = func(a[i], e, this);
-
 			if (v || v === 0 || v === '') {
 				m.push(v)
 			};
-
-			if (!i) e.first = false;
-		}
+		};
 
 		return m;
 	};
-
 
 	// совместимость с прошлым
 	function style_set(n, pr) {
@@ -473,5 +493,5 @@
 		};
 	};
 
-})(this.rr);
+})(this.rr||this);
 
