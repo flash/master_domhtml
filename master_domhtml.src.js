@@ -6,9 +6,9 @@
 
 	// по умолчанию все все параметры вставляются через nn.setAttribute(x, v);
 	// за исключением приведенного списка и параметров начинаюшиеся с символа "_" пример {_xxxx: 333}
-	var attr_to_param = { constructor: false
-		, 'name': badIE ? false : 'name'
-		, 'type': badIE ? false : 'type'
+	var attr_to_param = { constructor: null
+		, 'name': badIE ? null : 'name'
+		, 'type': badIE ? null : 'type'
 		, 'title': 'title'
 		, 'value': 'value'
 		, 'width': 'width'
@@ -39,10 +39,6 @@
 		, 'tabindex': 'tabIndex'
 		, 'zIndex': 'zIndex'
 		, 'zindex': 'zIndex'
-		, 'onclick': 'onclick'
-		, 'onmousedown': 'onmousedown'
-		, 'onmouseup': 'onmouseup'
-		, 'onmousemove': 'onmousemove'
 	};
 
 
@@ -62,13 +58,8 @@
 
 			if (q && !q.nodeType && typeof q == 'object') {
 				if (q.length === u || !isArray(q)) {
+					append_index = 2;
 					params = q;
-
-					arguments[1] = q = params.add; // params.add - призрак прошлого. вырезаю из кода
-					
-					if (q === u) {
-						append_index = 2;
-					};
 				};
 			};
 
@@ -151,23 +142,18 @@
 				else {
 					for (x in params) {
 						v = params[x];
-						if (v === u) continue;
+
+						if (v === u || v === null) continue;
 
 						if (i = attr_to_param[x]) {
-							nn[x] = v; 
+							nn[i] = v;
 							continue;
 						};
 
 						switch (x) {
-							//case 'text': if (v || v === '' || v === 0) nn.appendChild(d.createTextNode(v));   
-							case 'text':
+							case 'text': 
 								if (v || v === '' || v === 0) {
-									if (tag !== 'option' || badIE) {
-										nn.appendChild(d.createTextNode(v));
-									} 
-									else {
-										nn.text = v;
-									};
+									nn.appendChild(d.createTextNode(v));
 								};
 								break;
 
@@ -180,11 +166,18 @@
 								break;
 
 							case 'style':
-								// style_set(nn, v) для совместимости. но пока не удаляю
 								typeof v === 'string' ? nn.style.cssText = v : v && style_set(nn, v);
 								break;
 
-							case 'add': case 'parent': case 'before': case 'after':
+							case 'parent': case 'before': case 'after':
+								break;
+
+							case 'onclick': case 'onmousedown': case 'onmouseup': case 'onmousemove': case 'onchange': case 'onsubmit':
+								if (typeof v === 'function') {
+									nn[x] = v;
+								} else {
+									nn.setAttribute(x, v);
+								};
 								break;
 
 							default:
@@ -466,7 +459,7 @@
 		return m;
 	};
 
-	// совместимость с прошлым
+	// толи полезно толи нет
 	function style_set(n, pr) {
 		var st = n.style, x, a, und;
 
@@ -492,6 +485,5 @@
 			};
 		};
 	};
-
 })(this.rr);
 
